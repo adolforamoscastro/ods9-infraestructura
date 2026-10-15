@@ -1,43 +1,50 @@
 # ODS 9 — Infraestructura inteligente
 
-Página web estática en español sobre el Objetivo de Desarrollo Sostenible 9 (Industria, innovación e infraestructura). Incluye las secciones **Objetivo**, **Método**, **Juego** y **Contacto**, más un minijuego de detección y reparación de filtraciones térmicas.
+Página web en español sobre el Objetivo de Desarrollo Sostenible 9 (Industria, innovación e infraestructura). Incluye las secciones **Objetivo**, **Método**, **Juego** y **Contacto**, más un minijuego de detección y reparación de filtraciones térmicas.
 
 ## Contenido
 
-- `index.html`: estructura de la página y contenido.
-- `styles.css`: estilos adaptables a móvil y escritorio, navegación animada y diseño.
-- `game.js`: minijuego en Canvas HTML5, sin librerías externas.
+- `public/index.html`, `public/styles.css`, `public/game.js`: la página y el minijuego (como antes).
+- `public/auth.js`: botón **UNETENOS**, ventana de registro / inicio de sesión y contador de apoyos.
+- `server.js`: servidor Node.js (Express) con la API y la conexión a PostgreSQL.
+- `db/schema.sql`: tabla `usuarios` (se crea sola al arrancar).
+- `render.yaml`: servicio web + base de datos PostgreSQL en Render.
+
+## Cómo funciona
+
+- El botón **UNETENOS** (arriba a la derecha) abre una ventana para **crear cuenta** o **iniciar sesión** con correo y contraseña.
+- Cada correo registrado cuenta como una persona que apoya el proyecto; el total se muestra en el encabezado, en la portada y en la ventana.
+- Las contraseñas se guardan cifradas (bcrypt), la sesión va en una cookie `httpOnly` y hay límite de intentos contra abusos.
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/apoyos` | Total de personas que apoyan |
+| GET | `/api/yo` | Usuario con sesión activa |
+| POST | `/api/registro` | Crea cuenta `{email, password}` |
+| POST | `/api/login` | Inicia sesión |
+| POST | `/api/logout` | Cierra sesión |
 
 ## Ejecutar en local
 
-1. Descarga o descomprime el repositorio.
-2. Abre `index.html` en un navegador moderno.
+Necesitas Node.js 18+ y una base PostgreSQL.
 
-No requiere Node.js, instalación de dependencias, base de datos ni comandos Bash.
+1. `npm install`
+2. Copia `.env.example` como `.env` y completa `DATABASE_URL` y `JWT_SECRET`.
+3. `npm start` y abre http://localhost:3000
 
 ## Publicar en GitHub
 
-1. Entra a [GitHub](https://github.com/) e inicia sesión.
-2. Pulsa **New repository** y ponle un nombre, por ejemplo `ods9-infraestructura`.
-3. Crea el repositorio (puede ser público).
-4. Pulsa **Add file → Upload files**.
-5. Sube `index.html`, `styles.css`, `game.js` y `README.md`; confirma con **Commit changes**.
+Sube **todo** el contenido (incluidas las carpetas `public/` y `db/`, `package.json`, `server.js`, `render.yaml`). **No subas `.env`** (ya está en `.gitignore`).
 
-## Desplegar en Render como sitio estático
+## Desplegar en Render (con base de datos)
 
-1. Entra a [Render](https://render.com/) e inicia sesión.
-2. Selecciona **New + → Static Site**.
-3. Conecta GitHub y elige el repositorio `ods9-infraestructura`.
-4. Configura:
-   - **Name:** `ods9-infraestructura` (o el nombre que prefieras)
-   - **Branch:** `main`
-   - **Root Directory:** vacío
-   - **Build Command:** vacío / no necesario
-   - **Publish Directory:** `.`
-5. Pulsa **Create Static Site**. Render publicará el sitio y proporcionará una URL `onrender.com`.
-6. Cuando actualices archivos en GitHub y hagas commit, Render puede volver a desplegar automáticamente.
+Ya no es un sitio estático: ahora necesita un servicio web y PostgreSQL.
 
-También se incluye `render.yaml` como configuración opcional de infraestructura como código.
+1. En [Render](https://render.com/) elige **New + → Blueprint** y conecta el repositorio.
+2. Render leerá `render.yaml` y creará el servicio web y la base `ods9-db`, enlazando `DATABASE_URL` y generando `JWT_SECRET` automáticamente.
+3. Pulsa **Apply**. Al terminar tendrás una URL `onrender.com`.
+
+Nota: la base PostgreSQL del plan gratuito de Render tiene vencimiento; revisa las condiciones vigentes de Render o cambia de plan para conservar los datos a largo plazo.
 
 ## Cómo jugar
 
