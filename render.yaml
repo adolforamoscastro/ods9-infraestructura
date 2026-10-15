@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: ods9-infraestructura
+    runtime: static
+    buildCommand: ""
+    staticPublishPath: .
