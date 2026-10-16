@@ -32,17 +32,6 @@ Necesitas Node.js 18+ y una base PostgreSQL.
 2. Copia `.env.example` como `.env` y completa `DATABASE_URL` y `JWT_SECRET`.
 3. `npm start` y abre http://localhost:3000
 
-## Publicar en GitHub
-
-Sube **todo** el contenido (incluidas las carpetas `public/` y `db/`, `package.json`, `server.js`, `render.yaml`). **No subas `.env`** (ya está en `.gitignore`).
-
-## Desplegar en Render (con base de datos)
-
-Ya no es un sitio estático: ahora necesita un servicio web y PostgreSQL.
-
-1. En [Render](https://render.com/) elige **New + → Blueprint** y conecta el repositorio.
-2. Render leerá `render.yaml` y creará el servicio web y la base `ods9-db`, enlazando `DATABASE_URL` y generando `JWT_SECRET` automáticamente.
-3. Pulsa **Apply**. Al terminar tendrás una URL `onrender.com`.
 
 Nota: la base PostgreSQL del plan gratuito de Render tiene vencimiento; revisa las condiciones vigentes de Render o cambia de plan para conservar los datos a largo plazo.
 
