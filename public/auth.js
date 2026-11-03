@@ -42,6 +42,8 @@
 
   // ---------- Estado de sesión ----------
   function setUser(user) {
+    window.sesionActual = user || null;
+    document.dispatchEvent(new CustomEvent("sesion", { detail: user || null }));
     if (user) {
       joinBtn.textContent = "✓ YA ERES PARTE";
       joinBtn.classList.add("joined");

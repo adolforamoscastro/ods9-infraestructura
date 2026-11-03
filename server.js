@@ -10,6 +10,7 @@ const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
+const multer = require("multer");
 
 // Carga opcional de .env en desarrollo (sin dependencias extra).
 try { process.loadEnvFile && fs.existsSync(".env") && process.loadEnvFile(".env"); } catch (_) {}
@@ -39,6 +40,8 @@ const pool = new Pool({
 async function initDb() {
   const sql = fs.readFileSync(path.join(__dirname, "db", "schema.sql"), "utf8");
   await pool.query(sql);
+  // Tabla de inspecciones (requiere que "usuarios" ya exista).
+  await pool.query(fs.readFileSync(path.join(__dirname, "db", "inspecciones.sql"), "utf8"));
 }
 
 // ---------- App ----------
@@ -50,7 +53,9 @@ app.use(helmet({
     directives: {
       "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
       "font-src": ["'self'", "https://fonts.gstatic.com"],
-      "script-src": ["'self'"],
+      "script-src": ["'self'", "'wasm-unsafe-eval'"],   // OpenCV.js usa WebAssembly
+      "worker-src": ["'self'"],
+      "img-src": ["'self'", "data:", "blob:"],
       "connect-src": ["'self'"],
       "upgrade-insecure-requests": isProd ? [] : null
     }
@@ -149,6 +154,144 @@ app.post("/api/login", authLimiter, async (req, res) => {
 app.post("/api/logout", (_req, res) => {
   res.clearCookie(COOKIE, { ...cookieOpts, maxAge: undefined });
   ok(res, {});
+});
+
+// ---------- Inspecciones térmicas ----------
+function requiereSesion(req, res, next) {
+  const u = currentUser(req);
+  if (!u) return fail(res, 401, "Inicia sesión para guardar y ver tus inspecciones.");
+  req.usuario = u;
+  next();
+}
+
+const MAX_IMG = 5 * 1024 * 1024;
+const subir = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_IMG, files: 2, fields: 10, fieldSize: 1024 },
+  fileFilter: (_req, f, cb) =>
+    ["image/jpeg", "image/png"].includes(f.mimetype)
+      ? cb(null, true)
+      : cb(Object.assign(new Error("Solo se permiten imágenes JPG o PNG."), { status: 400 }))
+});
+const subirCampos = subir.fields([{ name: "original", maxCount: 1 }, { name: "procesada", maxCount: 1 }]);
+function recibirImagenes(req, res, next) {
+  subirCampos(req, res, (err) => {
+    if (!err) return next();
+    if (err.code === "LIMIT_FILE_SIZE") return fail(res, 413, "Cada imagen debe pesar máximo 5 MB.");
+    if (err instanceof multer.MulterError) return fail(res, 400, "Archivo no válido.");
+    return fail(res, err.status || 400, err.message || "Archivo no válido.");
+  });
+}
+const inspLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false,
+  message: { ok: false, error: "Demasiadas inspecciones guardadas. Inténtalo en unos minutos." }
+});
+
+// Misma escala didáctica que el Worker: verde < 5 %, amarillo 5–15 %, rojo > 15 %.
+const severidadDe = (p) => (p > 15 ? "rojo" : p >= 5 ? "amarillo" : "verde");
+// Firma real del archivo (no basta con confiar en el mimetype del cliente).
+function tipoImagen(buf) {
+  if (buf && buf.length > 8) {
+    if (buf[0] === 0xff && buf[1] === 0xd8) return "image/jpeg";
+    if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return "image/png";
+  }
+  return null;
+}
+const COLS = `id, titulo, ubicacion, paleta, porcentaje_afectado::float AS porcentaje,
+              zonas, severidad, inspeccion_previa_id AS previa, creada_en`;
+const idValido = (v) => /^\d{1,15}$/.test(String(v));
+
+// Devuelve la fila (con usuario_id) o responde 404/403.
+async function obtenerPropia(req, res, cols) {
+  if (!idValido(req.params.id)) { fail(res, 404, "Inspección no encontrada."); return null; }
+  const { rows } = await pool.query(`SELECT usuario_id, ${cols} FROM inspecciones WHERE id = $1`, [req.params.id]);
+  if (!rows[0]) { fail(res, 404, "Inspección no encontrada."); return null; }
+  if (String(rows[0].usuario_id) !== String(req.usuario.id)) { fail(res, 403, "No tienes permiso para ver esta inspección."); return null; }
+  return rows[0];
+}
+
+app.post("/api/inspecciones", inspLimiter, requiereSesion, recibirImagenes, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const titulo = String(b.titulo || "").trim();
+    const ubicacion = String(b.ubicacion || "").trim();
+    const paleta = String(b.paleta || "");
+    const porcentaje = Number(b.porcentaje);
+    const zonas = Number(b.zonas);
+    const previa = b.previa ? String(b.previa) : null;
+    const original = req.files && req.files.original && req.files.original[0];
+    const procesada = req.files && req.files.procesada && req.files.procesada[0];
+
+    if (!original || !procesada) return fail(res, 400, "Faltan las imágenes (original y procesada).");
+    if (!tipoImagen(original.buffer) || !tipoImagen(procesada.buffer)) return fail(res, 400, "Solo se permiten imágenes JPG o PNG.");
+    if (!titulo || titulo.length > 80) return fail(res, 400, "El título es obligatorio (máximo 80 caracteres).");
+    if (ubicacion.length > 120) return fail(res, 400, "La ubicación no puede superar 120 caracteres.");
+    if (!["hierro", "arcoiris"].includes(paleta)) return fail(res, 400, "Paleta no válida.");
+    if (!Number.isFinite(porcentaje) || porcentaje < 0 || porcentaje > 100) return fail(res, 400, "Porcentaje no válido.");
+    if (!Number.isInteger(zonas) || zonas < 0 || zonas > 10000) return fail(res, 400, "Número de zonas no válido.");
+
+    if (previa) {
+      if (!idValido(previa)) return fail(res, 400, "La inspección previa no es válida.");
+      const r = await pool.query("SELECT usuario_id FROM inspecciones WHERE id = $1", [previa]);
+      if (!r.rows[0] || String(r.rows[0].usuario_id) !== String(req.usuario.id))
+        return fail(res, 403, "Solo puedes comparar con tus propias inspecciones.");
+    }
+    const pct = Math.round(porcentaje * 100) / 100;
+    const { rows } = await pool.query(
+      `INSERT INTO inspecciones (usuario_id, titulo, ubicacion, paleta, porcentaje_afectado, zonas,
+         severidad, imagen_original, imagen_procesada, inspeccion_previa_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+      [req.usuario.id, titulo, ubicacion || null, paleta, pct, zonas, severidadDe(pct), // severidad recalculada en el servidor
+       original.buffer, procesada.buffer, previa]
+    );
+    res.status(201).json({ ok: true, id: rows[0].id, severidad: severidadDe(pct) });
+  } catch (e) {
+    if (e.code === "23503") return fail(res, 401, "Tu sesión ya no es válida. Inicia sesión de nuevo.");
+    console.error(e); fail(res, 500, "No se pudo guardar la inspección.");
+  }
+});
+
+app.get("/api/inspecciones", requiereSesion, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT ${COLS} FROM inspecciones WHERE usuario_id = $1 ORDER BY creada_en DESC LIMIT 200`, [req.usuario.id]);
+    ok(res, { inspecciones: rows });
+  } catch (e) { console.error(e); fail(res, 500, "No se pudo cargar el historial."); }
+});
+
+// Detalle + inspección previa (para la vista «Antes y después»).
+app.get("/api/inspecciones/:id", requiereSesion, async (req, res) => {
+  try {
+    const fila = await obtenerPropia(req, res, COLS);
+    if (!fila) return;
+    delete fila.usuario_id;
+    let anterior = null;
+    if (fila.previa) {
+      const r = await pool.query(`SELECT ${COLS} FROM inspecciones WHERE id = $1 AND usuario_id = $2`, [fila.previa, req.usuario.id]);
+      anterior = r.rows[0] || null;
+    }
+    ok(res, { inspeccion: fila, anterior });
+  } catch (e) { console.error(e); fail(res, 500, "No se pudo cargar la inspección."); }
+});
+
+app.get("/api/inspecciones/:id/imagen/:tipo", requiereSesion, async (req, res) => {
+  const col = { original: "imagen_original", procesada: "imagen_procesada" }[req.params.tipo];
+  if (!col) return fail(res, 404, "Tipo de imagen no válido.");
+  try {
+    const fila = await obtenerPropia(req, res, col);
+    if (!fila) return;
+    res.set({ "Content-Type": tipoImagen(fila[col]) || "application/octet-stream", "Cache-Control": "private, max-age=3600" });
+    res.send(fila[col]);
+  } catch (e) { console.error(e); fail(res, 500, "No se pudo cargar la imagen."); }
+});
+
+app.delete("/api/inspecciones/:id", requiereSesion, async (req, res) => {
+  try {
+    const fila = await obtenerPropia(req, res, "id");
+    if (!fila) return;
+    await pool.query("DELETE FROM inspecciones WHERE id = $1", [req.params.id]);
+    ok(res, {});
+  } catch (e) { console.error(e); fail(res, 500, "No se pudo eliminar."); }
 });
 
 app.use("/api", (_req, res) => fail(res, 404, "Ruta no encontrada."));

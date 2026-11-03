@@ -51,3 +51,59 @@ body.modal-open{overflow:hidden}
   .modal-card{padding:30px 22px 24px}
 }
 @media(prefers-reduced-motion:reduce){.join-button{animation:none}}
+
+/* ---------- Inspección térmica ---------- */
+.nav a[aria-current="page"]{color:var(--ink)}.nav a[aria-current="page"]:after{width:100%}
+.insp-page .section{padding-top:60px;padding-bottom:40px}
+.insp-intro h2{max-width:760px}.insp-lead{max-width:640px;color:var(--muted);font-size:14px;line-height:1.8;margin:18px 0}
+.insp-warning{max-width:760px;margin:0;padding:14px 16px;border-left:4px solid var(--orange);background:#fff6ea;border-radius:8px;font-size:12px;line-height:1.7;color:#5b4326}
+.insp-work{display:grid;grid-template-columns:340px 1fr;gap:28px;align-items:start}
+.insp-controls{display:flex;flex-direction:column;gap:16px}
+.insp-card{background:#f8faf4;border:1px solid #dbe4d4;border-radius:12px;padding:18px}
+.insp-card h3{margin:0 0 12px;font-size:15px}
+.insp-buttons{display:flex;gap:10px;flex-wrap:wrap}
+.insp-file{position:relative;cursor:pointer;overflow:hidden}
+.insp-file input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+.insp-file:focus-within{outline:2px solid #8fb64a;outline-offset:2px}
+.insp-hint{font-size:11px;color:var(--muted);line-height:1.6;margin:10px 0 0}
+.insp-file-name{font:500 11px 'DM Mono',monospace;color:#35504a;margin:8px 0 0;word-break:break-all}
+.insp-radio{display:flex;gap:10px;align-items:flex-start;padding:9px 0;cursor:pointer;font-size:12px}
+.insp-radio small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+.insp-analyze{border:0;cursor:pointer;font-family:inherit;width:100%;justify-content:center}
+.insp-analyze:disabled{opacity:.5;cursor:not-allowed}
+.insp-progress{margin-top:14px}.insp-progress p{font-size:11px;color:var(--muted);margin:8px 0 0}
+.insp-bar{height:8px;background:#e3eadb;border-radius:99px;overflow:hidden}
+.insp-bar-fill{height:100%;width:0;background:var(--green);border-radius:99px;transition:width .25s}
+.insp-engine{font:500 10px 'DM Mono',monospace;color:#647b60;margin:12px 0 0}
+.insp-results{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px}
+.insp-images{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.insp-images figure{margin:0}.insp-images figcaption{font:500 10px 'DM Mono',monospace;letter-spacing:1px;color:#647b60;margin-bottom:6px}
+.insp-images canvas{width:100%;height:auto;display:block;border-radius:8px;border:1px solid var(--line);background:#eef2e8}
+.insp-summary{display:flex;gap:34px;flex-wrap:wrap;margin:20px 0 8px}
+.insp-summary>div{display:flex;flex-direction:column;gap:6px}
+.insp-summary strong{font:500 20px 'DM Mono',monospace}
+.sev{padding:2px 10px;border-radius:6px;font-size:14px!important;align-self:flex-start;text-transform:uppercase}
+.sev-verde{background:#dff3c4;color:#33591a}.sev-amarillo{background:#fdeeb8;color:#7a5600}.sev-rojo{background:#fbd5cf;color:#a1291d}
+.insp-reco{font-size:13px;line-height:1.7;color:#263e39;margin:8px 0 20px}
+.insp-save{border-top:1px solid var(--line);padding-top:18px;max-width:520px}
+.insp-save h3{margin:0 0 10px;font-size:16px}
+.insp-save label{display:block;font-size:12px;font-weight:700;color:#35504a;margin-bottom:12px}
+.insp-save input,.insp-save select{display:block;width:100%;margin-top:6px;padding:11px 12px;border:1px solid #cbd7c8;border-radius:8px;background:#fff;font:500 13px Manrope,Arial,sans-serif;color:var(--ink)}
+.insp-ok{margin:0 0 12px;padding:10px 12px;border-radius:8px;background:#e5f4cf;color:#33591a;font-size:12px}
+.insp-ok[hidden],.insp-compare[hidden],.insp-results[hidden],.insp-progress[hidden],.insp-hint[hidden]{display:none}
+.insp-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-top:18px}
+.insp-item{background:#fbfcf8;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.insp-item img{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;background:#e3eadb}
+.insp-item-body{padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:12px}
+.insp-item-body strong{font-size:13px}.insp-item-body small{color:var(--muted);font-size:10px}
+.insp-item-actions{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.insp-item-actions button{border:1px solid #cbd7c8;background:none;border-radius:6px;padding:6px 10px;font:700 10px Manrope,Arial,sans-serif;cursor:pointer;color:#35504a}
+.insp-item-actions button:hover{background:#e9efdf}
+.insp-compare{margin-top:18px;padding:18px;border:1px solid #cbd7c8;border-radius:14px;background:#fff}
+.insp-compare h3{margin:0 0 12px;font-size:16px}
+.insp-compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.insp-compare-grid figure{margin:0}.insp-compare-grid img{width:100%;border-radius:8px;border:1px solid var(--line);display:block}
+.insp-compare-grid figcaption{font-size:12px;margin-bottom:6px;line-height:1.6}
+.insp-delta{margin:14px 0 0;font-size:13px;font-weight:700}
+@media(max-width:900px){.insp-work{grid-template-columns:1fr}}
+@media(max-width:560px){.insp-images,.insp-compare-grid{grid-template-columns:1fr}.insp-summary{gap:20px}}

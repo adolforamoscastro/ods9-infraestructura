@@ -8,6 +8,10 @@ Página web en español sobre el Objetivo de Desarrollo Sostenible 9 (Industria,
 - `public/auth.js`: botón **UNETENOS**, ventana de registro / inicio de sesión y contador de apoyos.
 - `server.js`: servidor Node.js (Express) con la API y la conexión a PostgreSQL.
 - `db/schema.sql`: tabla `usuarios` (se crea sola al arrancar).
+- `db/inspecciones.sql`: tabla `inspecciones` (se crea sola al arrancar, después de `schema.sql`).
+- `public/inspeccion.html` + `public/inspeccion.js`: herramienta de inspección térmica (subir/cámara, paleta, resultados, guardar, historial y antes/después).
+- `public/vision-worker.js`: Web Worker que carga OpenCV.js y hace HSV → máscara → morfología → `findContours` → % de área y severidad.
+- `public/vendor/opencv.js`: build de OpenCV.js 4.x (WebAssembly embebido, ~10 MB; solo se carga en la página de inspección).
 - `render.yaml`: servicio web + base de datos PostgreSQL en Render.
 
 ## Cómo funciona
@@ -23,6 +27,11 @@ Página web en español sobre el Objetivo de Desarrollo Sostenible 9 (Industria,
 | POST | `/api/registro` | Crea cuenta `{email, password}` |
 | POST | `/api/login` | Inicia sesión |
 | POST | `/api/logout` | Cierra sesión |
+| POST | `/api/inspecciones` | Guarda inspección (multipart: `original`, `procesada`, `titulo`, `ubicacion`, `paleta`, `porcentaje`, `zonas`, `previa`). Recalcula la severidad en el servidor |
+| GET | `/api/inspecciones` | Lista las inspecciones del usuario |
+| GET | `/api/inspecciones/:id` | Detalle + inspección previa (antes/después). 403 si es de otro usuario |
+| GET | `/api/inspecciones/:id/imagen/:tipo` | Imagen `original` o `procesada` con su Content-Type |
+| DELETE | `/api/inspecciones/:id` | Elimina una inspección propia |
 
 ## Ejecutar en local
 
@@ -34,6 +43,12 @@ Necesitas Node.js 18+ y una base PostgreSQL.
 
 
 Nota: la base PostgreSQL del plan gratuito de Render tiene vencimiento; revisa las condiciones vigentes de Render o cambia de plan para conservar los datos a largo plazo.
+
+## Inspección térmica
+
+Abre `/inspeccion.html`: sube una imagen térmica (JPG/PNG, máx. 5 MB) o usa la cámara, elige la paleta («hierro» o «arcoíris») y pulsa **Analizar**. Todo se procesa en el navegador dentro de un Web Worker. Severidad: verde < 5 %, amarillo 5–15 %, rojo > 15 % (escala didáctica; se cambia en `vision-worker.js` y `server.js`).
+
+**Limitación:** con una foto normal solo se segmentan colores; para inferir temperatura hace falta una imagen de cámara térmica con paleta conocida. Los rangos HSV (`RANGOS` en `vision-worker.js`) son un punto de partida: calíbralos con ≥10 imágenes por paleta y documenta la tabla en el informe.
 
 ## Cómo jugar
 
