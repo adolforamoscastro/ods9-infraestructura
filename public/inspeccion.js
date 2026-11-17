@@ -46,7 +46,21 @@
         show(el.error, data.mensaje); actualizarBoton();
       }
     };
-    worker.onerror = () => { analizando = false; el.progress.hidden = true; show(el.error, "El motor de visión falló. Recarga la página."); };
+    worker.onerror = (e) => {
+      analizando = false;
+      motorListo = false;
+      el.progress.hidden = true;
+      el.engine.textContent = "No se pudo iniciar el motor de visión.";
+      const detalle = e && e.message ? ` Detalle: ${e.message}` : "";
+      show(el.error, "El Worker de visión falló. Comprueba la consola del navegador y que /vision-worker.js y /vendor/opencv.js respondan correctamente." + detalle);
+      actualizarBoton();
+    };
+    worker.onmessageerror = () => {
+      analizando = false;
+      el.progress.hidden = true;
+      show(el.error, "El navegador no pudo interpretar la respuesta del motor de visión.");
+      actualizarBoton();
+    };
   }
   function actualizarBoton() { el.analyze.disabled = !(motorListo && imagen && !analizando); }
 

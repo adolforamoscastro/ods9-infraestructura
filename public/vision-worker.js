@@ -15,19 +15,61 @@ const UMBRAL_AMARILLO = 5, UMBRAL_ROJO = 15;  // escala didáctica (el servidor 
 function severidad(p) { return p > UMBRAL_ROJO ? "rojo" : p >= UMBRAL_AMARILLO ? "amarillo" : "verde"; }
 
 function cargarMotor() {
-  self.importScripts("/vendor/opencv.js");
-  return new Promise((ok, ko) => {
+  return new Promise((resolve, reject) => {
+    let terminado = false;
+    let cvModule = null;
+    let temporizador;
+
+    const finalizar = (error, modulo) => {
+      if (terminado) return;
+      if (!error && (!modulo || !modulo.Mat)) {
+        error = new Error("OpenCV terminó de cargar, pero no expuso cv.Mat.");
+      }
+      terminado = true;
+      clearTimeout(temporizador);
+      if (error) reject(error);
+      else resolve(modulo);
+    };
+
+    temporizador = setTimeout(() => {
+      finalizar(new Error("Tiempo de espera agotado al inicializar OpenCV/WebAssembly (30 s)."));
+    }, 30000);
+
     try {
-      let c = self.cv;
-      if (typeof c === "function") c = c();
-      if (c && c.Mat) return ok(c);
-      if (c && typeof c.then === "function") {
-        // Se entrega self.cv/m directamente (no el thenable) para no re-resolver la promesa.
-        c.then((m) => ok(m && m.Mat ? m : self.cv), ko);
-      } else if (c) {
-        c.onRuntimeInitialized = () => ok(c);
-      } else ko(new Error("OpenCV.js no se pudo cargar."));
-    } catch (e) { ko(e); }
+      // Carga la librería desde la carpeta pública del servidor.
+      self.importScripts("/vendor/opencv.js");
+      const fabrica = self.cv;
+      if (typeof fabrica !== "function") {
+        // Compatibilidad con builds que publican directamente el objeto cv.
+        if (fabrica && fabrica.Mat) return finalizar(null, fabrica);
+        if (fabrica && typeof fabrica.then === "function") {
+          fabrica.then((modulo) => finalizar(null, modulo || fabrica), finalizar);
+          return;
+        }
+        return finalizar(new Error("No se encontró la función/objeto cv después de cargar /vendor/opencv.js."));
+      }
+
+      // Pasar los callbacks ANTES de iniciar WebAssembly evita perder
+      // onRuntimeInitialized si el motor termina de arrancar rápidamente.
+      let inicializado = false;
+      cvModule = fabrica({
+        onRuntimeInitialized() {
+          inicializado = true;
+          finalizar(null, cvModule);
+        },
+        onAbort(motivo) {
+          finalizar(new Error("OpenCV abortó la inicialización: " + (motivo || "motivo desconocido")));
+        }
+      });
+
+      if (inicializado || (cvModule && cvModule.Mat)) {
+        finalizar(null, cvModule);
+      } else if (cvModule && typeof cvModule.then === "function") {
+        cvModule.then((modulo) => finalizar(null, modulo || cvModule), finalizar);
+      }
+    } catch (e) {
+      finalizar(e);
+    }
   });
 }
 

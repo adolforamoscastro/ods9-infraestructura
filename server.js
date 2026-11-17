@@ -56,7 +56,7 @@ app.use(helmet({
       "script-src": ["'self'", "'wasm-unsafe-eval'", "'unsafe-eval'"], // OpenCV.js 4.x usa new Function() además de WebAssembly
       "worker-src": ["'self'"],
       "img-src": ["'self'", "data:", "blob:"],
-      "connect-src": ["'self'", "data:"], // OpenCV.js carga su .wasm embebido como data: URI vía fetch(),
+      "connect-src": ["'self'"],
       "upgrade-insecure-requests": isProd ? [] : null
     }
   }
