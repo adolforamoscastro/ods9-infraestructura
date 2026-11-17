@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Sube la foto de una pared, detecta zonas calientes con visión por computador en tu navegador y guarda la inspección para compararla después de reparar.">
+  <title>Inspección térmica | ODS 9</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="auth.js" defer></script>
+  <script src="inspeccion.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Ir al inicio"><span class="brand-mark">9</span><span>Infraestructura <strong>inteligente</strong></span></a>
+    <nav class="nav" aria-label="Navegación principal">
+      <a href="index.html#objetivo">Objetivo</a>
+      <a href="index.html#metodo">Método</a>
+      <a href="index.html#juego">Juego</a>
+      <a href="inspeccion.html" aria-current="page">Inspección</a>
+      <a href="index.html#contacto">Contacto</a>
+    </nav>
+    <div class="header-actions">
+      <span class="support-pill" title="Personas que apoyan el proyecto"><span class="pulse"></span><strong data-support-count>–</strong> apoyan</span>
+      <button type="button" id="join-btn" class="join-button">UNETENOS</button>
+      <button type="button" id="logout-btn" class="logout-button" hidden>Salir</button>
+      <button class="menu-toggle" aria-label="Abrir menú" aria-expanded="false">☰</button>
+    </div>
+  </header>
+
+  <main class="insp-page">
+    <section class="section insp-intro">
+      <div class="section-kicker">HERRAMIENTA / INSPECCIÓN TÉRMICA</div>
+      <h2>Analiza una pared: <span>detecta zonas calientes.</span></h2>
+      <p class="insp-lead">Sube una imagen de una cámara térmica. El análisis se realiza en tu navegador con el motor térmico ODS 9, sin descargar OpenCV ni modelos externos; la imagen solo viaja al servidor si decides guardarla.</p>
+      <p class="insp-warning" role="note"><strong>Limitación importante:</strong> con una foto normal solo se segmentan <em>colores</em>, no temperaturas. Para inferir calor necesitas una imagen de una <strong>cámara térmica</strong> (o del accesorio térmico de un celular) con una paleta conocida. La herramienta segmenta colores de la paleta seleccionada. No recupera temperaturas radiométricas ni confirma por sí sola una fuga; la severidad es orientativa.</p>
+    </section>
+
+    <section class="section insp-work">
+      <div class="insp-controls">
+        <div class="insp-card">
+          <h3>1. Imagen</h3>
+          <div class="insp-buttons">
+            <label class="button primary insp-file">Subir imagen
+              <input type="file" id="insp-file" accept="image/jpeg,image/png">
+            </label>
+            <label class="button secondary insp-file">Usar la cámara
+              <input type="file" id="insp-camera" accept="image/*" capture="environment">
+            </label>
+          </div>
+          <p class="insp-hint">JPG o PNG, máximo 5 MB. Se redimensiona a 1280 px de ancho.</p>
+          <p class="insp-file-name" id="insp-file-name" aria-live="polite"></p>
+        </div>
+
+        <div class="insp-card">
+          <h3>2. Paleta de la imagen</h3>
+          <label class="insp-radio"><input type="radio" name="paleta" value="hierro" checked> <span><strong>Térmica «hierro»</strong><small>negro · morado · rojo · amarillo · blanco</small></span></label>
+          <label class="insp-radio"><input type="radio" name="paleta" value="arcoiris"> <span><strong>Arcoíris</strong><small>azul · verde · amarillo · rojo</small></span></label>
+        </div>
+
+        <div class="insp-card">
+          <h3>3. Analizar</h3>
+          <button type="button" class="button primary insp-analyze" id="insp-analyze" disabled>Analizar imagen</button>
+          <div class="insp-progress" id="insp-progress" hidden aria-live="polite">
+            <div class="insp-bar"><div class="insp-bar-fill" id="insp-bar-fill"></div></div>
+            <p id="insp-progress-text">Procesando…</p>
+          </div>
+          <p class="insp-engine" id="insp-engine" role="status">Iniciando motor térmico local…</p>
+          <p class="form-error" id="insp-error" role="alert" hidden></p>
+        </div>
+      </div>
+
+      <div class="insp-results" id="insp-results" hidden>
+        <div class="insp-images">
+          <figure><figcaption>Original</figcaption><canvas id="cv-original" aria-label="Imagen original"></canvas></figure>
+          <figure><figcaption>Zonas térmicas detectadas (rojo: cálidas · azul: frías)</figcaption><canvas id="cv-resultado" aria-label="Imagen con contornos de zonas calientes"></canvas></figure>
+        </div>
+        <div class="insp-summary">
+          <div><span class="hud-label">ÁREA CÁLIDA</span><strong id="r-porcentaje">–</strong></div>
+          <div><span class="hud-label">ÁREA FRÍA</span><strong id="r-frio">–</strong></div>
+          <div><span class="hud-label">ZONAS</span><strong id="r-zonas">–</strong></div>
+          <div><span class="hud-label">SEVERIDAD</span><strong id="r-severidad" class="sev">–</strong></div>
+        </div>
+        <p class="insp-reco" id="r-reco"></p>
+
+        <form class="insp-save" id="insp-save" novalidate>
+          <h3>Guardar inspección</h3>
+          <p class="insp-hint" id="insp-login-hint" hidden>Necesitas <strong>iniciar sesión</strong> (botón UNETENOS) para guardar.</p>
+          <label>Título <input id="s-titulo" maxlength="80" required placeholder="Ej. Muro norte antes de reparar"></label>
+          <label>Ubicación <input id="s-ubicacion" maxlength="120" placeholder="Ej. Habitación 2, muro norte"></label>
+          <label>Es la inspección «después de reparar» de:
+            <select id="s-previa"><option value="">— Ninguna (inspección inicial) —</option></select>
+          </label>
+          <p class="form-error" id="s-error" role="alert" hidden></p>
+          <p class="insp-ok" id="s-ok" role="status" hidden></p>
+          <button type="submit" class="button primary form-submit" id="s-submit">Guardar inspección</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="section insp-history" id="historial">
+      <div class="section-kicker">HISTORIAL / ANTES Y DESPUÉS</div>
+      <h2>Tus <span>inspecciones</span></h2>
+      <p class="insp-hint" id="h-estado">Inicia sesión para ver tu historial.</p>
+      <div class="insp-compare" id="h-compare" hidden></div>
+      <div class="insp-list" id="h-list"></div>
+    </section>
+  </main>
+
+  <div class="modal" id="auth-modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <button type="button" class="modal-close" data-close aria-label="Cerrar">×</button>
+      <p class="section-kicker">ÚNETE AL PROYECTO</p>
+      <h2 id="auth-title">Súmate como <span>apoyo</span></h2>
+      <p class="modal-sub">Ya son <strong data-support-count>–</strong> <span data-support-label>personas</span>. Crea tu cuenta o inicia sesión con tu correo.</p>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" class="tab active" data-mode="registro" aria-selected="true">Crear cuenta</button>
+        <button type="button" role="tab" class="tab" data-mode="login" aria-selected="false">Iniciar sesión</button>
+      </div>
+      <form id="auth-form" novalidate>
+        <label>Correo electrónico
+          <input type="email" id="auth-email" autocomplete="email" required maxlength="254" placeholder="tucorreo@ejemplo.com">
+        </label>
+        <label>Contraseña
+          <input type="password" id="auth-password" autocomplete="new-password" required minlength="8" maxlength="72" placeholder="Mínimo 8 caracteres">
+        </label>
+        <p class="form-error" id="auth-error" role="alert" hidden></p>
+        <button type="submit" class="button primary form-submit" id="auth-submit">Unirme al proyecto</button>
+      </form>
+    </div>
+  </div>
+
+  
+  <footer><a class="brand footer-brand" href="index.html"><span class="brand-mark">9</span><span>Infraestructura <strong>inteligente</strong></span></a><p>Proyecto educativo inspirado en el Objetivo de Desarrollo Sostenible 9.</p><a href="#">Volver arriba ↑</a></footer>
+</body>
+</html>

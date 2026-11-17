@@ -10,9 +10,8 @@ Página web en español sobre el Objetivo de Desarrollo Sostenible 9 (Industria,
 - `db/schema.sql`: tabla `usuarios` (se crea sola al arrancar).
 - `db/inspecciones.sql`: tabla `inspecciones` (se crea sola al arrancar, después de `schema.sql`).
 - `public/inspeccion.html` + `public/inspeccion.js`: herramienta de inspección térmica (subir/cámara, paleta, resultados, guardar, historial y antes/después).
-- `public/vision-worker.js`: Web Worker que carga OpenCV.js y hace HSV → máscara → morfología → `findContours` → % de área y severidad.
-- `public/vendor/opencv.js`: build de OpenCV.js 4.x (WebAssembly embebido, ~10 MB; solo se carga en la página de inspección).
-- La política CSP permite `unsafe-eval` porque este build de OpenCV.js genera funciones con `new Function()`; `wasm-unsafe-eval` por sí solo no lo permite.
+- `public/vision-worker.js`: motor térmico autónomo en Web Worker; clasifica colores de paletas térmicas, agrupa regiones cálidas/frías y marca zonas sin dependencias externas.
+- El motor nuevo no requiere WebAssembly, `unsafe-eval` ni descargas de modelos externos.
 - `render.yaml`: servicio web + base de datos PostgreSQL en Render.
 
 ## Cómo funciona
@@ -47,7 +46,9 @@ Nota: la base PostgreSQL del plan gratuito de Render tiene vencimiento; revisa l
 
 ## Inspección térmica
 
-Abre `/inspeccion.html`: sube una imagen térmica (JPG/PNG, máx. 5 MB) o usa la cámara, elige la paleta («hierro» o «arcoíris») y pulsa **Analizar**. Todo se procesa en el navegador dentro de un Web Worker. Severidad: verde < 5 %, amarillo 5–15 %, rojo > 15 % (escala didáctica; se cambia en `vision-worker.js` y `server.js`).
+Abre `/inspeccion.html`: sube una imagen térmica (JPG/PNG, máx. 5 MB) o usa la cámara, elige la paleta («hierro» o «arcoíris») y pulsa **Analizar**. El procesamiento se realiza localmente dentro de un Web Worker, sin OpenCV, WASM ni modelos externos. El motor marca regiones cálidas en rojo y frías en azul, cuenta componentes y estima porcentajes de píxeles clasificados. Severidad: verde < 5 %, amarillo 5–15 %, rojo > 15 % (escala didáctica).
+
+**Alcance:** el motor analiza los colores visibles en la imagen. Un JPG/PNG convencional no conserva necesariamente datos radiométricos, por lo que no se obtienen temperaturas reales ni se confirma una fuga. La selección de paleta y los umbrales son heurísticos; valida los hallazgos con equipo térmico calibrado y personal técnico.
 
 **Limitación:** con una foto normal solo se segmentan colores; para inferir temperatura hace falta una imagen de cámara térmica con paleta conocida. Los rangos HSV (`RANGOS` en `vision-worker.js`) son un punto de partida: calíbralos con ≥10 imágenes por paleta y documenta la tabla en el informe.
 
