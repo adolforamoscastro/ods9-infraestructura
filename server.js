@@ -53,7 +53,9 @@ app.use(helmet({
     directives: {
       "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
       "font-src": ["'self'", "https://fonts.gstatic.com"],
-      "script-src": ["'self'", "'wasm-unsafe-eval'"],   // OpenCV.js usa WebAssembly
+      // La página principal no necesita eval. Se habilita solo en la respuesta
+      // del Web Worker que ejecuta OpenCV.js (ver middleware antes de express.static).
+      "script-src": ["'self'", "'wasm-unsafe-eval'"],
       "worker-src": ["'self'"],
       "img-src": ["'self'", "data:", "blob:"],
       "connect-src": ["'self'"],
@@ -297,6 +299,19 @@ app.delete("/api/inspecciones/:id", requiereSesion, async (req, res) => {
 app.use("/api", (_req, res) => fail(res, 404, "Ruta no encontrada."));
 
 // ---------- Sitio estático ----------
+// OpenCV.js (build Emscripten incluido en public/vendor) usa new Function()
+// durante su inicialización. La excepción se limita al Worker de visión, no
+// a todos los scripts de la página. Se establece la política en la respuesta
+// del Worker para que el navegador la aplique a su contexto de ejecución.
+app.get("/vision-worker.js", (req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; " +
+    "connect-src 'self' blob:; img-src 'self' data: blob:; worker-src 'self' blob:; " +
+    "object-src 'none'; base-uri 'self'"
+  );
+  next();
+});
 app.use(express.static(path.join(__dirname, "public")));
 
 initDb()

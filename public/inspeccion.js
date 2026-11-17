@@ -46,7 +46,16 @@
         show(el.error, data.mensaje); actualizarBoton();
       }
     };
-    worker.onerror = () => { analizando = false; el.progress.hidden = true; show(el.error, "El motor de visión falló. Recarga la página."); };
+    worker.onerror = (e) => {
+      analizando = false; el.progress.hidden = true;
+      const detalle = e && (e.message || e.filename)
+        ? ` (${e.message || "error del Worker"}${e.lineno ? `, línea ${e.lineno}` : ""})`
+        : "";
+      console.error("Error del motor de visión:", e);
+      show(el.error, "El motor de visión no pudo iniciarse." + detalle +
+        " Comprueba la consola y la política CSP del servidor.");
+      actualizarBoton();
+    };
   }
   function actualizarBoton() { el.analyze.disabled = !(motorListo && imagen && !analizando); }
 
@@ -211,6 +220,17 @@
       if (err.status === 401) { usuario = null; pintarSesion(); }
       show(el.sError, err.message);
     } finally { el.sSubmit.disabled = !usuario; }
+  });
+
+  window.addEventListener("securitypolicyviolation", (e) => {
+    if (e.blockedURI || e.violatedDirective) {
+      console.error("Bloqueo CSP:", {
+        directive: e.violatedDirective,
+        blockedURI: e.blockedURI,
+        sourceFile: e.sourceFile,
+        lineNumber: e.lineNumber
+      });
+    }
   });
 
   iniciarWorker();
