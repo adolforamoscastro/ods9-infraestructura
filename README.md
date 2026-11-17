@@ -12,7 +12,7 @@ Página web en español sobre el Objetivo de Desarrollo Sostenible 9 (Industria,
 - `public/inspeccion.html` + `public/inspeccion.js`: herramienta de inspección térmica (subir/cámara, paleta, resultados, guardar, historial y antes/después).
 - `public/vision-worker.js`: Web Worker que carga OpenCV.js y hace HSV → máscara → morfología → `findContours` → % de área y severidad.
 - `public/vendor/opencv.js`: build de OpenCV.js 4.x (WebAssembly embebido, ~10 MB; solo se carga en la página de inspección).
-- El permiso `unsafe-eval` se limita a la respuesta de `/vision-worker.js`, porque este build de OpenCV.js genera funciones con `new Function()`; la página principal no recibe ese permiso.
+- La política CSP permite `unsafe-eval` porque este build de OpenCV.js genera funciones con `new Function()`; `wasm-unsafe-eval` por sí solo no lo permite.
 - `render.yaml`: servicio web + base de datos PostgreSQL en Render.
 
 ## Cómo funciona
